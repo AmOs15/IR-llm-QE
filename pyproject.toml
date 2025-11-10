@@ -1,0 +1,19 @@
+[project]
+name = "src"
+version = "0.1.0"
+description = "BM25 search and evaluation on MIRACL Japanese corpus using Pyserini"
+authors = [
+    {name = "Your Name",email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyserini>=0.20.0",
+    "ir-datasets>=0.5.0",
+    "tqdm>=4.65.0",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
