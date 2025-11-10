@@ -420,6 +420,7 @@ def main():
 
     print(f"Loading index from {index_dir}...")
     searcher = LuceneSearcher(str(index_dir))
+    searcher.set_language('ja')
 
     # Set BM25 parameters
     bm25_k1 = 1.2
