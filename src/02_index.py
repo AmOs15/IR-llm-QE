@@ -10,10 +10,13 @@ Requirements:
 - Corpus data must be downloaded first (run 01_download.py)
 """
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+from tqdm import tqdm
 
 
 def check_java() -> bool:
@@ -100,7 +103,9 @@ def get_index_stats(index_dir: Path) -> dict:
         Dictionary with index statistics
     """
     try:
-        from pyserini.index import IndexReader
+        # from pyserini.index import IndexReader
+        from pyserini.index.lucene import IndexReader
+
 
         reader = IndexReader(str(index_dir))
 
@@ -114,6 +119,62 @@ def get_index_stats(index_dir: Path) -> dict:
     except Exception as e:
         print(f"⚠ Could not read index stats: {e}")
         return {}
+
+
+def convert_corpus_to_pyserini_format(input_file: Path, output_file: Path) -> int:
+    """
+    Convert MIRACL corpus format to Pyserini-compatible format.
+
+    MIRACL format: {'id': ..., 'title': ..., 'text': ...}
+    Pyserini format: {'id': ..., 'contents': ...}
+
+    Args:
+        input_file: Path to original corpus.jsonl
+        output_file: Path to output corpus_pyserini.jsonl
+
+    Returns:
+        Number of documents converted
+    """
+    print(f"\nConverting corpus to Pyserini format...")
+    print(f"  Input:  {input_file}")
+    print(f"  Output: {output_file}")
+
+    doc_count = 0
+
+    with open(input_file, 'r', encoding='utf-8') as f_in, \
+         open(output_file, 'w', encoding='utf-8') as f_out:
+
+        for line in tqdm(f_in, desc="Converting documents", unit="docs"):
+            try:
+                doc = json.loads(line)
+
+                # Extract fields
+                doc_id = doc.get('id', '')
+                title = doc.get('title', '')
+                text = doc.get('text', '')
+
+                # Combine title and text into contents
+                # If title exists, prepend it to the text
+                if title:
+                    contents = f"{title}\n{text}"
+                else:
+                    contents = text
+
+                # Create Pyserini-compatible document
+                pyserini_doc = {
+                    'id': doc_id,
+                    'contents': contents
+                }
+
+                f_out.write(json.dumps(pyserini_doc, ensure_ascii=False) + '\n')
+                doc_count += 1
+
+            except json.JSONDecodeError as e:
+                print(f"\n⚠ Error parsing JSON line: {e}")
+                continue
+
+    print(f"✓ Converted {doc_count:,} documents")
+    return doc_count
 
 
 def print_index_stats(stats: dict) -> None:
@@ -235,6 +296,32 @@ def main():
     if not check_corpus(corpus_dir):
         return 1
 
+    # Convert corpus to Pyserini format
+    print("\n" + "=" * 60)
+    print("Converting Corpus Format")
+    print("=" * 60)
+
+    original_corpus = corpus_dir / "corpus.jsonl"
+    pyserini_corpus_dir = base_dir / "data" / "corpus_pyserini"
+    pyserini_corpus_file = pyserini_corpus_dir / "corpus.jsonl"
+
+    # Create directory for Pyserini corpus
+    pyserini_corpus_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check if converted corpus already exists
+    if pyserini_corpus_file.exists():
+        print(f"✓ Pyserini-format corpus already exists at {pyserini_corpus_file}")
+        with open(pyserini_corpus_file, 'r', encoding='utf-8') as f:
+            pyserini_doc_count = sum(1 for _ in f)
+        print(f"  Found {pyserini_doc_count:,} documents")
+    else:
+        # Convert corpus
+        doc_count = convert_corpus_to_pyserini_format(original_corpus, pyserini_corpus_file)
+
+        if doc_count == 0:
+            print("✗ Failed to convert corpus")
+            return 1
+
     # Check for existing index
     print("\n" + "=" * 60)
     print("Checking Existing Index")
@@ -247,30 +334,36 @@ def main():
         stats = get_index_stats(index_dir)
         print_index_stats(stats)
 
-        print("\nOptions:")
-        print("  1. Use existing index (recommended)")
-        print("  2. Delete and recreate index")
+        # If index has 0 documents, automatically delete it
+        if stats.get('num_docs', 0) == 0:
+            print("\n⚠ Index has 0 documents - automatically deleting and recreating...")
+            import shutil
+            shutil.rmtree(index_dir)
+            print("✓ Empty index deleted")
+        else:
+            print("\nOptions:")
+            print("  1. Use existing index (recommended)")
+            print("  2. Delete and recreate index")
 
-        response = input("\nDo you want to recreate the index? (y/N): ").strip().lower()
+            response = input("\nDo you want to recreate the index? (y/N): ").strip().lower()
 
-        if response not in ['y', 'yes']:
-            print("\n✓ Using existing index")
-            print("\nNext steps:")
-            print("  1. Run searches: poetry run python src/03_search.py")
-            print("  2. Evaluate results: poetry run python src/04_evaluate.py")
-            return 0
+            if response not in ['y', 'yes']:
+                print("\n✓ Using existing index")
+                print("\nNext steps:")
+                print("  1. Run baseline search and evaluation: poetry run python src/03_baseline.py")
+                return 0
 
-        print("\nDeleting existing index...")
-        import shutil
-        shutil.rmtree(index_dir)
-        print("✓ Existing index deleted")
+            print("\nDeleting existing index...")
+            import shutil
+            shutil.rmtree(index_dir)
+            print("✓ Existing index deleted")
 
     # Create index
     print("\n" + "=" * 60)
     print("Creating Index")
     print("=" * 60)
 
-    success = create_index(corpus_dir, index_dir, threads=4)
+    success = create_index(pyserini_corpus_dir, index_dir, threads=4)
 
     if not success:
         print("\n" + "=" * 60)
@@ -305,8 +398,7 @@ def main():
     print("Next Steps")
     print("=" * 60)
     print("\nYou can now:")
-    print("  1. Run searches: poetry run python src/03_search.py")
-    print("  2. Evaluate results: poetry run python src/04_evaluate.py")
+    print("  1. Run baseline search and evaluation: poetry run python src/03_baseline.py")
 
     print("\nBM25 Parameters:")
     print("  k1 = 1.2 (term frequency saturation)")
