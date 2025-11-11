@@ -30,6 +30,17 @@ outputs = generator(
   max_new_tokens=2048, 
   # temperature=0.7
 )
+
+generated_text = outputs[0]["generated_text"][-1]["content"]
+
+text = generated_text
+marker = "assistantfinal"
+if marker in text:
+  generated_text = text.split(marker, 1)[1].strip()
+else:
+  generated_text = text
 print(outputs)
 print()
 print(outputs[0]["generated_text"][-1])
+print()
+print(generated_text)
