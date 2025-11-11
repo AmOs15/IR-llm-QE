@@ -134,6 +134,13 @@ def expand_query_with_llm(
             # Extract generated text
             generated_text = outputs[0]["generated_text"][-1]["content"]
 
+            text = generated_text
+            marker = "assistantfinal"
+            if marker in text:
+                generated_text = text.split(marker, 1)[1].strip()
+            else:
+                generated_text = text
+
             # Parse output
             word_list = parse_llm_output(generated_text)
 
