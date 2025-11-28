@@ -1,0 +1,23 @@
+{
+  "run_name": "baseline_20251110_233657",
+  "timestamp": "2025-11-10T23:36:57.489641",
+  "metrics": {
+    "recall_10": 0.4055029950669486,
+    "recall_100": 0.7501202641028217,
+    "ndcg_10": 0.29342793079547397
+  },
+  "baseline_comparison": {
+    "recall_100_diff": -0.05467973589717823,
+    "ndcg_10_diff": -0.07547206920452604
+  },
+  "parameters": {
+    "bm25_k1": 1.2,
+    "bm25_b": 0.75,
+    "top_k": 100
+  },
+  "num_queries": 860,
+  "official_baseline": {
+    "recall_100": 0.8048,
+    "ndcg_10": 0.3689
+  }
+}

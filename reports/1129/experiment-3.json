@@ -1,0 +1,29 @@
+{
+  "run_name": "gpt_expand_20251118_143128",
+  "timestamp": "2025-11-18T14:31:28.500122",
+  "model": "openai/gpt-oss-20b",
+  "query_expansion": "llm_similar_words",
+  "max_retries": 3,
+  "metrics": {
+    "recall_10": 0.39747097218027444,
+    "recall_100": 0.7545304372629948,
+    "ndcg_10": 0.29293175356338597
+  },
+  "baseline_comparison": {
+    "recall_100_diff": -0.05026956273700511,
+    "ndcg_10_diff": -0.07596824643661404
+  },
+  "parameters": {
+    "bm25_k1": 1.2,
+    "bm25_b": 0.75,
+    "top_k": 100
+  },
+  "num_queries_total": 860,
+  "num_queries_processed": 860,
+  "num_queries_skipped": 0,
+  "skipped_queries": [],
+  "official_baseline": {
+    "recall_100": 0.8048,
+    "ndcg_10": 0.3689
+  }
+}
