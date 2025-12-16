@@ -23,9 +23,14 @@ from tqdm import tqdm
 
 
 # Official MIRACL Japanese baseline scores for comparison
-OFFICIAL_BASELINE = {
-    'recall_100': 0.8048,
-    'ndcg_10': 0.3689,
+# OFFICIAL_BASELINE = {
+#     'recall_100': 0.8048,
+#     'ndcg_10': 0.3689,
+# }
+OFFICIAL_BASELINE ={
+    'ndcg_10': 0.2934,
+    "recall_10": 0.4055,
+    'recall_100': 0.7501
 }
 
 # RM3 parameters (standard conservative settings)
