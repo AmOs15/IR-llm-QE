@@ -22,6 +22,8 @@ from typing import Dict, List, Tuple, Optional, Any
 from pyserini.search.lucene import LuceneSearcher
 from tqdm import tqdm
 
+from prompt import PROMPT_SIMPLE_TEMPLATE, PROMPT_COT_AGR_TEMPLATE, PROMPT_COT_VIRTUAL_ANSWER_TEMPLATE
+
 
 # Official MIRACL Japanese baseline scores for comparison
 OFFICIAL_BASELINE = {
@@ -35,75 +37,12 @@ BASELINE_SCORE ={
 }
 
 # LLM configuration
-MAX_RETRIES = 3
+MAX_RETRIES = 10
 LLM_MODEL_NAME = "openai/gpt-oss-20b"
-LLM_SYSTEM_PROMPT = """あなたは「日本語クエリ拡張の類似語ジェネレータ」です。目的は、文書検索（IR）の再現率を高めつつ、精度低下（クエリ・ドリフト）を最小化することです。
 
-【入力】文書検索タスクの日本語クエリ（短文/句）
-
-【出力】以下のJSON配列のみを返します（重複なし・文字列のみ）:
-["単語", "単語", ...]
-
-【必須ルール】
-- クエリ内の各コンテンツ語（名詞・固有名詞・動詞の基本形・形容詞語幹など）ごとに、高精度な類似語・表記揺れを0〜3語追加します。助詞・助動詞・記号は対象外。
-- 追加候補の優先度は次の順：①同義・言い換え ＞ ②表記ゆれ（漢字/かな、送り仮名、旧/新字体、全角/半角、長音・促音の有無）＞ ③活用・派生（名詞化・連用形など）＞ ④略称・通称・別称 ＞ ⑤カタカナ語の異表記（例: サーバ/サーバー）＞ ⑥数値表記（漢数字/算用数字）。
-- 固有名詞は一般的な略称・別名・かな/漢字の相互変換・カタカナ外来語の異表記を含めます（例: JR東海／東海旅客鉄道）。
-- 多義語はクエリ全体の文脈で主たる語義に一致するものだけを追加し、意味がぶれる候補は出力しません（ドリフト防止）。
-- 英字のみの語は原則出力しません。ただし日本語コーパスで一般的なASCII略称（例: JR, NHK, JAL）は許可。
-- 引用符（「」/『』/“”）で囲まれた句、ハッシュタグ、マイナス指定（-語）は保護し、その内部は拡張しません。
-- 総語数は、1語あたり最大3候補を目安とし、重要度が高い順に並べます。重複は除去します。
-- 出力は**配列だけ**。説明文・理由・番号・コメントは一切出力しません。
-
-【前処理】
-1) NFKC正規化（全角/半角・記号の統一、一般的な大小写・長音の正規化）。
-2) 日本語形態素解析を想定し、複合名詞や固有表現は可能な限り分割せず扱います（例: 「選挙管理委員会」は一語として優先）。
-
-【失敗時のフォールバック】
-- 適切な類似語が見つからない語は原語のみを残し、無関係な拡張は行いません。
-
-【最終出力形式（厳守）】
-["単語", "単語", ...]
-"""
-AGR_REASONING_SYSTEM_PROMPT = """
-あなたは日本語の情報検索のためのクエリ拡張エージェントです。
-ユーザーから与えられた「質問（クエリ）」に対して、内部で次の3段階の思考を行ってください。
-
-[Step 1: ANALYZE]
-- 質問が求めている情報要求を要約する。
-- 重要なエンティティ（人名・組織名・地名・製品名など）を特定する。
-- 重要な概念・トピック、関連する専門用語を列挙する。
-- 時間・場所・視点などの制約条件を整理する。
-- 必要であればサブ質問に分解する。
-
-[Step 2: GENERATE]
-- Step 1 の分析にもとづき、文書検索性能を高めるためのクエリ拡張候補をいくつか考える。
-- 元の質問の意図から外れない範囲で、言い換え語・類義語・関連語・上位/下位概念を候補に含める。
-- 日本語として自然な単語または短い句の単位で候補を作る。
-
-[Step 3: REFINE]
-- 生成したクエリ拡張候補を比較・評価する。
-- 元の質問に含まれない前提を強く仮定しているものや、事実として怪しいものを除外する。
-- 意味がほぼ重複している候補はまとめる。
-- 最終的に、情報検索に有用と判断した拡張語だけを残す。
-
-思考のルール:
-- 上記 3 ステップの推論過程は、自由に日本語で書いてよい。
-- ただしそれはモデル内部の思考ログであり、最終出力とは分ける。
-- 新しい事実を断定的に作り出さないこと。クエリの意図から外れないこと。
-
-最終出力:
-- 最終的に採用したクエリ拡張語だけを JSON 形式の配列で返す。
-- 形式は: ["単語1", "単語2", "複合語3", ...]
-- 配列の要素は、日本語として妥当な分かち書き単語または短い句とする。
-- 元クエリ自体の語も必要であれば含めてよい。
-
-出力フォーマット:
-1. まず、必要であれば上記 3 ステップの思考過程を書いてよい。
-2. 思考が完成したら、次の文字列を単独の行に出力すること:
-   assistantfinal
-3. その次の行に、最終結果だけを配列形式で出力すること:
-   ["...", "...", "..."]
-"""
+# LLM_SYSTEM_PROMPT = PROMPT_SIMPLE_TEMPLATE
+LLM_SYSTEM_PROMPT = PROMPT_COT_AGR_TEMPLATE
+# LLM_SYSTEM_PROMPT = PROMPT_COT_VIRTUAL_ANSWER_TEMPLATE
 
 
 def initialize_llm():
@@ -187,7 +126,6 @@ def expand_query_with_llm(
             # Prepare messages
             messages = [
                 {"role": "system", "content": LLM_SYSTEM_PROMPT},
-                # {"role": "system", "content": AGR_REASONING_SYSTEM_PROMPT},
                 {"role": "user", "content": query_text},
             ]
 
@@ -225,9 +163,9 @@ def expand_query_with_llm(
             error_msg = f"LLM generation error: {str(e)} (attempt {attempt + 1}/{max_retries})"
             if attempt < max_retries - 1:
                 continue
-            return (False, None, error_msg)
+            return (False, query_text, error_msg)
 
-    return (False, None, "Max retries exceeded")
+    return (False, query_text, "Max retries exceeded")
 
 
 def load_topics(topics_file: Path) -> Dict[str, str]:
@@ -544,7 +482,7 @@ def save_evaluation_json(
     """
     # Calculate differences from official baseline
     baseline_comparison = {}
-    for metric_name, baseline_value in OFFICIAL_BASELINE.items():
+    for metric_name, baseline_value in BASELINE_SCORE.items():
         if metric_name in metrics:
             diff = metrics[metric_name] - baseline_value
             baseline_comparison[f"{metric_name}_diff"] = diff
@@ -567,7 +505,7 @@ def save_evaluation_json(
         'num_queries_processed': num_queries_processed,
         'num_queries_skipped': num_queries_skipped,
         'skipped_queries': skipped_query_ids,
-        'official_baseline': OFFICIAL_BASELINE,
+        'official_baseline': BASELINE_SCORE,
     }
 
     with open(output_file, 'w', encoding='utf-8') as f:
@@ -593,7 +531,7 @@ def save_evaluation_csv(
 
         # Write metrics
         for metric_name, value in sorted(metrics.items()):
-            baseline_value = OFFICIAL_BASELINE.get(metric_name, None)
+            baseline_value = BASELINE_SCORE.get(metric_name, None)
 
             if baseline_value is not None:
                 diff = value - baseline_value
@@ -614,7 +552,7 @@ def print_evaluation_summary(metrics: Dict[str, float]) -> None:
     print("=" * 60)
 
     for metric_name, value in sorted(metrics.items()):
-        baseline_value = OFFICIAL_BASELINE.get(metric_name)
+        baseline_value = BASELINE_SCORE.get(metric_name)
 
         if baseline_value is not None:
             diff = value - baseline_value
@@ -675,6 +613,7 @@ def main():
     print(f"\nRun name: {run_name}")
     print(f"Timestamp: {timestamp.isoformat()}")
     print(f"Model: {LLM_MODEL_NAME}")
+    print(f"Prompt: {LLM_SYSTEM_PROMPT}")
     print(f"Max retries per query: {MAX_RETRIES}")
 
     # Check prerequisites
@@ -724,7 +663,7 @@ def main():
     print("Loading topics...")
     topics = load_topics(topics_file)
     # Debug:
-    # topics = dict(list(topics.items())[:2])
+    # topics = dict(list(topics.items())[:100])
     print(f"✓ Loaded {len(topics)} queries")
 
     print("Loading qrels...")
@@ -760,8 +699,6 @@ def main():
     print(f"\n✓ Search completed")
     print(f"  Retrieved top-{top_k} documents for {len(results)} queries")
     print(f"  Skipped {len(skipped_queries)} queries")
-    print("PROMPT")
-    print(LLM_SYSTEM_PROMPT)
     print("RESULTS")
     print(queries)
 
