@@ -624,19 +624,19 @@ def main():
     if not index_dir.exists():
         print(f"✗ Index not found at {index_dir}")
         print("\nPlease create the index first:")
-        print("  poetry run python src/02_index.py")
+        print("  uv run python src/02_index.py")
         return 1
 
     if not topics_file.exists():
         print(f"✗ Topics file not found at {topics_file}")
         print("\nPlease download the data first:")
-        print("  poetry run python src/01_download.py")
+        print("  uv run python src/01_download.py")
         return 1
 
     if not qrels_file.exists():
         print(f"✗ Qrels file not found at {qrels_file}")
         print("\nPlease download the data first:")
-        print("  poetry run python src/01_download.py")
+        print("  uv run python src/01_download.py")
         return 1
 
     print(f"✓ Index found: {index_dir}")
@@ -651,8 +651,9 @@ def main():
     generator = initialize_llm()
     if generator is None:
         print("\n✗ Failed to initialize LLM. Cannot proceed.")
-        print("\nMake sure you have installed:")
-        print("  poetry add transformers torch accelerate")
+        print("\nCheck your LLM backend:")
+        print("  ollama       : ollama serve  (and: ollama pull gpt-oss:20b)")
+        print("  transformers : uv sync --extra cuda   # RTX / CUDA only")
         return 1
 
     # Load data
