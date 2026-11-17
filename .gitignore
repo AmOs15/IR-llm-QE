@@ -6,3 +6,9 @@ indexes/
 Memo/
 results/
 *.log
+docs/*
+
+# uv / Python
+.venv/
+__pycache__/
+*.pyc

@@ -60,7 +60,7 @@ def check_corpus(corpus_dir: Path) -> bool:
     if not corpus_file.exists():
         print(f"✗ Corpus not found at {corpus_file}")
         print("\nPlease run the download script first:")
-        print("  poetry run python src/01_download.py")
+        print("  uv run python src/01_download.py")
         return False
 
     # Count documents
@@ -350,7 +350,7 @@ def main():
             if response not in ['y', 'yes']:
                 print("\n✓ Using existing index")
                 print("\nNext steps:")
-                print("  1. Run baseline search and evaluation: poetry run python src/03_baseline.py")
+                print("  1. Run baseline search and evaluation: uv run python src/03_baseline.py")
                 return 0
 
             print("\nDeleting existing index...")
@@ -398,7 +398,7 @@ def main():
     print("Next Steps")
     print("=" * 60)
     print("\nYou can now:")
-    print("  1. Run baseline search and evaluation: poetry run python src/03_baseline.py")
+    print("  1. Run baseline search and evaluation: uv run python src/03_baseline.py")
 
     print("\nBM25 Parameters:")
     print("  k1 = 1.2 (term frequency saturation)")
